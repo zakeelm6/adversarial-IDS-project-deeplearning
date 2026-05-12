@@ -67,9 +67,10 @@ son \'evaluation sous attaques adversariales, et l'efficacit\'e de deux m\'ethod
 Nous entra\^inons un MLP binaire sur le dataset \textbf{UNSW-NB15} (82\,332 exemples d'entra\^inement,
 175\,341 de test, 42 features), puis nous appliquons les attaques FGSM et PGD en respectant un
 \emph{threat model} r\'ealiste (seules les features manipulables par l'attaquant sont perturb\'ees).
-Deux d\'efenses sont compar\'ees : l'adversarial training et le feature squeezing.
-Le feature squeezing obtient le meilleur compromis robustesse/performance,
-maintenant un F1 de \textbf{0.852} sous PGD contre \textbf{0.774} pour l'adversarial training.
+Deux d\'efenses sont \'etudi\'ees : l'adversarial training (deux variantes) et le feature squeezing.
+Nous montrons que l'adversarial training FGSM (Approche~1) d\'egrade la robustesse (evasion~36.7\%),
+que l'adversarial training PGD (Approche~2) \'echoue \'egalement (evasion~40.2\%),
+et que le feature squeezing obtient le meilleur r\'esultat (evasion~\textbf{23.4\%} sous PGD, F1~=~\textbf{0.852}).
 \end{abstract}
 
 \tableofcontents
@@ -279,23 +280,56 @@ l'attaquant fait passer 1 attaque sur 4 inaper\c{c}ue.
 \section{D\'efenses}
 %% ============================================================
 
-\subsection{D\'efense 1 --- Adversarial Training}
+\subsection{D\'efense 1 --- Adversarial Training : deux approches compar\'ees}
+
+Nous avons impl\'ement\'e et compar\'e deux variantes d'adversarial training afin d'identifier
+les limites de chacune.
+
+\subsubsection*{Approche 1 --- FGSM Adversarial Training (FGSM-AT)}
 
 \textbf{Principe :} R\'e-entra\^iner le mod\`ele sur un m\'elange de donn\'ees propres et
-d'exemples adversariaux g\'en\'er\'es dynamiquement \cite{madry2018}.
+d'exemples adversariaux FGSM g\'en\'er\'es dynamiquement \cite{madry2018}.
 
-\`A chaque epoch :
+\`A chaque epoch : (1) g\'en\'erer $X_{\text{adv}}$ = FGSM($X_{\text{train}}$, $\varepsilon=0.1$),
+(2) construire le batch : 50\% $X_{\text{train}}$ + 50\% $X_{\text{adv}}$, (3) mettre \`a jour les poids.
+
+\textbf{R\'esultat :} Evasion rate sous PGD = \alert{36.7\%} --- \emph{pire que le baseline} (28.2\%).
+
+\textbf{Analyse de l'\'echec :} trois raisons expliqu\'ees en d\'etail :
 \begin{enumerate}[leftmargin=1.5em, noitemsep]
-    \item G\'en\'erer $X_{\text{adv}}$ = FGSM($X_{\text{train}}$, $\varepsilon=0.1$)
-    \item Construire le batch mixte : 50\% $X_{\text{train}}$ + 50\% $X_{\text{adv}}$
-    \item Mettre \`a jour les poids du mod\`ele sur ce batch
+    \item \textbf{Robustness gap :} entra\^in\'e sur FGSM (1 \'etape), \'evalu\'e sous PGD (40 \'etapes).
+    Le mod\`ele a appris \`a r\'esister \`a un adversaire bien plus faible que celui de l'\'evaluation.
+    \item \textbf{Distribution shift :} le mix 50/50 cr\'ee une distribution hybride --- le mod\`ele
+    optimise deux objectifs contradictoires simultan\'ement, ce qui nuit aux deux.
+    \item \textbf{Attaque non-stabilis\'ee :} FGSM g\'en\'er\'e sur un mod\`ele non-converg\'e produit
+    des exemples adversariaux de mauvaise qualit\'e en d\'ebut d'entra\^inement.
 \end{enumerate}
 
-Le mod\`ele apprend que l'attaque originale \emph{et} sa version perturb\'ee sont toutes les deux des attaques.
-Sa fronti\`ere de d\'ecision devient plus large et moins sensible aux petites perturbations.
+\subsubsection*{Approche 2 --- PGD Adversarial Training (PGD-AT)}
 
-\textbf{Trade-off :} En apprenant sur des donn\'ees plus difficiles, le mod\`ele sacrifie un peu de
-performance sur les donn\'ees normales (F1 : 0.911 $\rightarrow$ 0.897).
+\textbf{Motivations :} corriger les trois d\'efauts de l'Approche~1 en utilisant PGD-7 comme
+attaque d'entra\^inement (m\^eme famille que l'\'evaluation) et en entra\^inant sur 100\% d'exemples
+adversariaux (\'elimination du distribution shift).
+
+\textbf{Formulation min-max de Madry et al.~\cite{madry2018} :}
+\[
+\min_\theta\; \mathbb{E}_{(x,y)}\!\left[\max_{\|\delta\|_\infty \leq \varepsilon} \mathcal{L}(f_\theta(x+\delta), y)\right]
+\]
+
+\`A chaque epoch : (1) g\'en\'erer $X_{\text{adv}}$ = PGD-7($X_{\text{train}}$, $\varepsilon=0.1$, $\alpha=0.01$),
+(2) mettre \`a jour les poids uniquement sur $X_{\text{adv}}$ (pas de mix).
+
+\textbf{R\'esultat :} Evasion rate sous PGD = \alert{40.2\%} --- encore plus \'elev\'e.
+
+\textbf{Analyse :} entra\^iner sur 100\% d'exemples PGD sans aucune donn\'ee propre provoque
+un \emph{oubli catastrophique} de la distribution naturelle.
+Le mod\`ele ne voit jamais les donn\'ees propres et surfit la distribution adversariale PGD-7,
+sans g\'en\'eraliser aux exemples PGD-40 de l'\'evaluation (gap PGD-7 vs PGD-40 plus important encore).
+
+\textbf{Conclusion sur l'adversarial training :} les deux variantes d\'egradent la robustesse sur ce
+dataset. Ceci illustre la difficult\'e intrins\`eque de l'adversarial training sur des donn\'ees tabulaires
+r\'eseau, o\`u les features sont h\'et\'erog\`enes et les perturbations ne suivent pas de structure
+spatiale exploitable par le mod\`ele.
 
 \subsection{D\'efense 2 --- Feature Squeezing}
 
@@ -324,26 +358,38 @@ def feature_squeezing(X, bits=4):
 
 \begin{table}[H]
 \centering
-\caption{Comparaison des trois mod\`eles sous toutes les conditions ($\varepsilon=0.1$)}
+\caption{Comparaison de toutes les approches sous toutes les conditions ($\varepsilon=0.1$)}
 \begin{tabular}{llrrrr}
 \toprule
 \textbf{Mod\`ele} & \textbf{Sc\'enario} & \textbf{F1} & \textbf{Precision} & \textbf{Recall} & \textbf{Evasion\%} \\
 \midrule
-Baseline        & Propres & 0.9110 & 0.9879 & 0.8452 & 15.5\% \\
-Baseline        & FGSM    & 0.8533 & 0.9864 & 0.7518 & 24.8\% \\
-Baseline        & PGD     & 0.8402 & 0.9860 & 0.7320 & 26.8\% \\
+Baseline             & Propres & 0.9110 & 0.9879 & 0.8452 & 15.5\% \\
+Baseline             & FGSM    & 0.8533 & 0.9864 & 0.7518 & 24.8\% \\
+Baseline             & PGD     & 0.8306 & 0.9857 & 0.7176 & 28.2\% \\
 \midrule
-Adv. Training   & Propres & 0.8971 & 0.9868 & 0.8224 & 17.8\% \\
-Adv. Training   & FGSM    & 0.7746 & 0.9831 & 0.6391 & 36.1\% \\
-Adv. Training   & PGD     & 0.7738 & 0.9831 & 0.6380 & 36.2\% \\
+Approche 1 FGSM-AT   & Propres & 0.8971 & 0.9868 & 0.8224 & 17.8\% \\
+Approche 1 FGSM-AT   & FGSM    & 0.7722 & 0.9830 & 0.6358 & 36.4\% \\
+\rowcolor{myred!10}
+Approche 1 FGSM-AT   & PGD     & 0.7700 & 0.9829 & 0.6329 & 36.7\% \\
 \midrule
-Feat. Squeezing & Propres & 0.8818 & 0.9620 & 0.8140 & 18.6\% \\
-Feat. Squeezing & FGSM    & 0.8570 & 0.9602 & 0.7739 & 22.6\% \\
+Approche 2 PGD-AT    & Propres & 0.8943 & 0.9841 & 0.8195 & 18.1\% \\
+Approche 2 PGD-AT    & FGSM    & 0.7484 & 0.9786 & 0.6059 & 39.4\% \\
+\rowcolor{myred!15}
+Approche 2 PGD-AT    & PGD     & 0.7425 & 0.9783 & 0.5982 & 40.2\% \\
+\midrule
+Feat. Squeezing      & Propres & 0.8818 & 0.9620 & 0.8140 & 18.6\% \\
+Feat. Squeezing      & FGSM    & 0.8570 & 0.9602 & 0.7739 & 22.6\% \\
 \rowcolor{green!15}
-Feat. Squeezing & PGD     & \textbf{0.8519} & 0.9597 & 0.7658 & \textbf{23.4\%} \\
+Feat. Squeezing      & PGD     & \textbf{0.8449} & 0.9592 & 0.7550 & \textbf{24.5\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../results/approach_comparison.png}
+\caption{Comparaison F1-score et Evasion Rate --- Baseline vs FGSM-AT vs PGD-AT}
+\end{figure}
 
 \begin{figure}[H]
 \centering
@@ -387,24 +433,28 @@ Feat. Squeezing & PGD     & \textbf{0.8519} & 0.9597 & 0.7658 & \textbf{23.4\%} 
 
 \subsection{Discussion}
 
-\textbf{Pourquoi le Feature Squeezing surpasse l'Adversarial Training dans nos r\'esultats ?}
+\textbf{Constat principal :} les deux variantes d'adversarial training (FGSM-AT et PGD-AT) produisent
+un mod\`ele \emph{moins robuste} que le baseline non d\'efendu.
+Ce r\'esultat, contre-intuitif, s'explique par les m\'ecanismes analys\'es en Section~5.1 :
+robustness gap, distribution shift, et oubli catastrophique.
+
+\textbf{Pourquoi le Feature Squeezing est la meilleure d\'efense sur ce dataset ?}
 
 \begin{enumerate}[leftmargin=1.5em]
-    \item \textbf{Nombre d'epochs r\'eduit} : L'adversarial training a \'et\'e entra\^in\'e sur 10~epochs
-    (vs 30 pour le baseline). Avec 30~epochs et une augmentation progressive de $\varepsilon$,
-    les r\'esultats seraient meilleurs.
-    \item \textbf{G\'en\'eralisation attaque} : L'adversarial training utilise uniquement FGSM pour la
-    g\'en\'eration des exemples pendant l'entra\^inement. Les attaques PGD, plus fortes,
-    ne sont pas couvertes aussi bien.
-    \item \textbf{M\'ecanisme du feature squeezing} : Il supprime directement les perturbations
-    \`a haute fr\'equence par quantification, sans modifier le mod\`ele.
-    Son efficacit\'e ne d\'epend pas du temps d'entra\^inement.
+    \item \textbf{Action directe sur les perturbations :} il \'elimine les petites
+    modifications num\'eriques par quantification, ind\'ependamment du mod\`ele.
+    Son efficacit\'e ne d\'epend pas de la distribution d'entra\^inement.
+    \item \textbf{Compatibilit\'e avec les donn\'ees tabulaires :} contrairement aux images,
+    les features r\'eseau sont h\'et\'erog\`enes. Les perturbations adversariales n'ont pas
+    de structure spatiale --- la quantification par feature est directement adapt\'ee.
+    \item \textbf{Pas de modification du mod\`ele :} appliqu\'e uniquement \`a l'inf\'erence,
+    il ne perturbe pas la distribution d'entra\^inement et conserve les performances sur donn\'ees propres.
 \end{enumerate}
 
-\textbf{Compromis robustesse/pr\'ecision :} C'est le trade-off fondamental de l'adversarial ML.
-En entra\^inant sur des donn\'ees plus difficiles, on gagne en robustesse mais on perd sur les
-donn\'ees propres (F1~: 0.911 $\rightarrow$ 0.897).
-Le feature squeezing offre un meilleur point d'op\'eration (0.882 sur propres, 0.852 sous PGD).
+\textbf{Compromis robustesse/pr\'ecision (Tsipras et al. 2019) :}
+L'adversarial training sacrifie des performances sur donn\'ees propres sans am\'eliorer la robustesse ici.
+Le feature squeezing offre un meilleur point d'op\'eration : F1~=~0.882 sur donn\'ees propres,
+F1~=~0.845 sous PGD, evasion~=~24.5\%.
 
 %% ============================================================
 \section{Conclusion}
@@ -415,17 +465,19 @@ donn\'ees normales, mais que des attaques adversariales simples (FGSM, PGD) suff
 passer 27\% des attaques inaper\c{c}ues.
 
 \begin{itemize}[leftmargin=1.5em, noitemsep]
-    \item Le \textbf{feature squeezing} est la meilleure d\'efense dans notre cadre :
-    il r\'eduit l'evasion rate de 26.8\% \`a 23.4\% sous PGD avec une perte minimale.
-    \item L'\textbf{adversarial training} a un potentiel sup\'erieur th\'eoriquement, mais
-    n\'ecessite plus d'epochs et l'utilisation d'attaques PGD (pas seulement FGSM) pour \^etre efficace.
-    \item Le \textbf{threat model} est crucial : en restreignant les perturbations aux features
-    manipulables, on produit des attaques r\'ealistes et \'evaluables.
+    \item Le \textbf{feature squeezing} est la meilleure d\'efense : evasion~24.5\% sous PGD
+    vs 28.2\% pour le baseline, avec une perte minimale de F1 sur donn\'ees propres (0.882 vs 0.911).
+    \item L'\textbf{adversarial training FGSM} (Approche~1) d\'egrade la robustesse (evasion~36.7\%)
+    \`a cause du robustness gap et du distribution shift.
+    \item L'\textbf{adversarial training PGD} (Approche~2) \'echoue \'egalement (evasion~40.2\%)
+    car entra\^iner sur 100\% d'exemples adversariaux provoque un oubli catastrophique de la distribution naturelle.
+    \item Ces r\'esultats illustrent la difficult\'e intrins\`eque de l'adversarial training
+    sur des donn\'ees tabulaires r\'eseau h\'et\'erog\`enes.
 \end{itemize}
 
-\textbf{Perspectives :} Combiner les deux d\'efenses (adversarial training + feature squeezing
-\`a l'inf\'erence), utiliser des attaques PGD dans l'adversarial training, ou explorer la
-randomized smoothing seraient des prolongements naturels de ce travail.
+\textbf{Perspectives :} combiner feature squeezing et adversarial training avec un ratio propres/adversariaux
+mieux calibr\'e, utiliser des attaques plus fortes (AutoAttack), ou explorer la randomized smoothing
+pour des garanties certifi\'ees de robustesse.
 
 \vspace{1em}
 

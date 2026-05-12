@@ -324,31 +324,79 @@ Sous PGD, \alert{1 attaque sur 4} passe inaper\c{c}ue. La pr\'ecision reste \'el
 \section{D\'efenses}
 %% ============================================================
 
-\begin{frame}{D\'efense 1 --- Adversarial Training}
+\begin{frame}{D\'efense 1 --- Adversarial Training : Approche 1 (FGSM-AT)}
 \begin{columns}[T]
 \column{0.54\textwidth}
 \begin{block}{Principe}
-Re-entra\^iner le mod\`ele sur un mix donn\'ees propres + adversariales.
+Re-entra\^iner sur un mix 50\% propres + 50\% FGSM.
 \end{block}
 \vspace{0.3em}
-\textbf{\`A chaque epoch :}
-\begin{enumerate}
-    \item G\'en\'erer $X_\text{adv}$ = FGSM($X_\text{train}$, $\varepsilon$=0.1)
-    \item Batch mixte : 50\% propres + 50\% adversariaux
-    \item Mise \`a jour des poids
-\end{enumerate}
+\textbf{R\'esultat :}
+\begin{table}
+\scriptsize
+\begin{tabular}{lrr}
+\toprule
+Sc\'enario & F1 & Evasion\% \\
+\midrule
+Propres & 0.8971 & 17.8\% \\
+\rowcolor{myred!20}
+PGD & 0.7700 & \alert{36.7\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\vspace{0.3em}
-Le mod\`ele apprend que l'attaque \emph{et sa version modifi\'ee} sont toutes les deux des attaques.
-$\Rightarrow$ fronti\`ere de d\'ecision plus large.
+\alert{Pire que le baseline (28.2\%) !}
 
 \column{0.43\textwidth}
-\begin{alertblock}{Trade-off}
-Entra\^inement plus difficile $\Rightarrow$ l\'eg\`ere perte sur donn\'ees propres.
-\medskip
-
-F1 propres : 0.911 $\rightarrow$ \textbf{0.897}
+\begin{alertblock}{3 raisons de l'\'echec}
+\begin{enumerate}
+\scriptsize
+    \item \textbf{Robustness gap} : entra\^in\'e FGSM, \'evalu\'e PGD
+    \item \textbf{Distribution shift} : mix 50/50 contradictoire
+    \item \textbf{Attaque non-stabilis\'ee} : FGSM sur mod\`ele non-converg\'e
+\end{enumerate}
 \end{alertblock}
+\end{columns}
+\end{frame}
+
+\begin{frame}{D\'efense 1 --- Adversarial Training : Approche 2 (PGD-AT)}
+\begin{columns}[T]
+\column{0.54\textwidth}
+\begin{block}{Corrections appliqu\'ees}
+\begin{itemize}
+    \item FGSM $\rightarrow$ \textbf{PGD-7} (m\^eme famille que l'\'evaluation)
+    \item 100\% adversarial (\'elimination du distribution shift)
+\end{itemize}
+\end{block}
+\vspace{0.2em}
+\[
+\min_\theta\; \mathbb{E}\!\left[\max_{\|\delta\|_\infty \leq \varepsilon} \mathcal{L}(f_\theta(x+\delta), y)\right]
+\]
+\textbf{R\'esultat :}
+\begin{table}
+\scriptsize
+\begin{tabular}{lrr}
+\toprule
+Sc\'enario & F1 & Evasion\% \\
+\midrule
+Propres & 0.8943 & 18.1\% \\
+\rowcolor{myred!30}
+PGD & 0.7425 & \alert{40.2\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\column{0.43\textwidth}
+\begin{alertblock}{Encore pire !}
+Entra\^iner sur 100\% PGD sans donn\'ees propres provoque un \textbf{oubli catastrophique}.
+
+\medskip
+Le mod\`ele surfit PGD-7 sans g\'en\'eraliser \`a PGD-40.
+\end{alertblock}
+\vspace{0.3em}
+\begin{block}{Conclusion}
+L'adversarial training \'echoue sur ce dataset tabulaire h\'et\'erog\`ene.
+\end{block}
 \end{columns}
 \end{frame}
 
@@ -392,31 +440,34 @@ Apr\`es quantification \`a 4 bits, cette pr\'ecision est perdue.
 
 \begin{frame}{Tableau Comparatif Complet}
 \begin{table}
-\footnotesize
-\begin{tabular}{llrrrr}
+\scriptsize
+\begin{tabular}{llrrr}
 \toprule
-\textbf{Mod\`ele} & \textbf{Sc\'enario} & \textbf{F1} & \textbf{Precision} & \textbf{Recall} & \textbf{Evasion\%} \\
+\textbf{Mod\`ele} & \textbf{Sc\'enario} & \textbf{F1} & \textbf{Recall} & \textbf{Evasion\%} \\
 \midrule
-Baseline        & Propres & 0.9110 & 0.9879 & 0.8452 & 15.5\% \\
-Baseline        & FGSM    & 0.8533 & 0.9864 & 0.7518 & 24.8\% \\
-Baseline        & PGD     & 0.8402 & 0.9860 & 0.7320 & 26.8\% \\
+Baseline             & Propres & 0.9110 & 0.845 & 15.5\% \\
+Baseline             & PGD     & 0.8306 & 0.718 & 28.2\% \\
 \midrule
-Adv. Training   & Propres & 0.8971 & 0.9868 & 0.8224 & 17.8\% \\
-Adv. Training   & FGSM    & 0.7746 & 0.9831 & 0.6391 & 36.1\% \\
-Adv. Training   & PGD     & 0.7738 & 0.9831 & 0.6380 & 36.2\% \\
+\rowcolor{myred!10}
+Approche 1 FGSM-AT   & Propres & 0.8971 & 0.822 & 17.8\% \\
+\rowcolor{myred!15}
+Approche 1 FGSM-AT   & PGD     & 0.7700 & 0.633 & 36.7\% \\
+\midrule
+\rowcolor{myred!15}
+Approche 2 PGD-AT    & Propres & 0.8943 & 0.819 & 18.1\% \\
+\rowcolor{myred!25}
+Approche 2 PGD-AT    & PGD     & 0.7425 & 0.598 & \alert{40.2\%} \\
 \midrule
 \rowcolor{mygreen!15}
-Feat. Squeezing & Propres & 0.8818 & 0.9620 & 0.8140 & 18.6\% \\
-\rowcolor{mygreen!15}
-Feat. Squeezing & FGSM    & 0.8570 & 0.9602 & 0.7739 & 22.6\% \\
+Feat. Squeezing      & Propres & 0.8818 & 0.814 & 18.6\% \\
 \rowcolor{mygreen!25}
-Feat. Squeezing & PGD     & \textbf{0.8519} & 0.9597 & 0.7658 & \textbf{23.4\%} \\
+Feat. Squeezing      & PGD     & \textbf{0.8449} & 0.755 & \textbf{24.5\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 \vspace{0.2em}
 \begin{center}
-\footnotesize Le Feature Squeezing donne le meilleur compromis robustesse / performance.
+\footnotesize L'adversarial training \'echoue dans les deux variantes. Le Feature Squeezing est la seule d\'efense efficace.
 \end{center}
 \end{frame}
 
@@ -464,27 +515,27 @@ $\varepsilon$ & \textbf{Baseline} & \textbf{Adv. Train.} \\
 \column{0.48\textwidth}
 \begin{block}{Ce qu'on a montr\'e}
 \begin{itemize}
-    \item MLP baseline : F1 = \textbf{0.911} sur donn\'ees propres
-    \item FGSM/PGD font \'evader \textbf{27\%} des attaques ($\varepsilon=0.1$)
-    \item \textbf{Feature Squeezing} : meilleure d\'efense dans ce cadre (evasion 23.4\%)
-    \item L'adversarial training est limit\'e par le nombre d'epochs (10 vs 30)
+    \item MLP baseline : F1 = \textbf{0.911}, evasion \textbf{15.5\%}
+    \item FGSM/PGD font \'evader \textbf{28\%} des attaques
+    \item Adversarial training (FGSM-AT et PGD-AT) : \alert{\'echec sur les deux variantes} --- evasion 36--40\%
+    \item \textbf{Feature Squeezing} : seule d\'efense efficace (evasion \textbf{24.5\%})
 \end{itemize}
 \end{block}
 
 \column{0.48\textwidth}
+\begin{alertblock}{Pourquoi l'adv. training \'echoue}
+Les donn\'ees r\'eseau sont \textbf{tabulaires et h\'et\'erog\`enes} --- pas de structure spatiale.
+L'adversarial training sur ces donn\'ees souffre de robustness gap et d'oubli catastrophique.
+\end{alertblock}
+
+\vspace{0.3em}
 \begin{exampleblock}{Perspectives}
 \begin{itemize}
-    \item Combiner les deux d\'efenses
-    \item Adversarial training avec PGD (pas seulement FGSM)
-    \item Randomized smoothing (d\'efense certifi\'ee)
-    \item \'Evaluation sur d'autres datasets (CICIDS, KDD)
+    \item Ratio propres/adversariaux calibr\'e
+    \item AutoAttack pour \'evaluation plus robuste
+    \item Randomized smoothing (certifi\'e)
 \end{itemize}
 \end{exampleblock}
-
-\vspace{0.4em}
-\begin{alertblock}{Le trade-off fondamental}
-Robustesse $\uparrow$ \quad $\Longleftrightarrow$ \quad Performance donn\'ees propres $\downarrow$
-\end{alertblock}
 \end{columns}
 \end{frame}
 
