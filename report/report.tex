@@ -17,6 +17,7 @@
 \setlength{\headheight}{14pt}
 
 \definecolor{myblue}{RGB}{31,78,121}
+\definecolor{myred}{RGB}{192,0,0}
 \definecolor{codegray}{RGB}{245,245,245}
 
 \hypersetup{
@@ -67,10 +68,11 @@ son \'evaluation sous attaques adversariales, et l'efficacit\'e de deux m\'ethod
 Nous entra\^inons un MLP binaire sur le dataset \textbf{UNSW-NB15} (82\,332 exemples d'entra\^inement,
 175\,341 de test, 42 features), puis nous appliquons les attaques FGSM et PGD en respectant un
 \emph{threat model} r\'ealiste (seules les features manipulables par l'attaquant sont perturb\'ees).
-Deux d\'efenses sont \'etudi\'ees : l'adversarial training (deux variantes) et le feature squeezing.
+Trois variantes d'adversarial training sont \'etudi\'ees et compar\'ees au feature squeezing.
 Nous montrons que l'adversarial training FGSM (Approche~1) d\'egrade la robustesse (evasion~36.7\%),
-que l'adversarial training PGD (Approche~2) \'echoue \'egalement (evasion~40.2\%),
-et que le feature squeezing obtient le meilleur r\'esultat (evasion~\textbf{23.4\%} sous PGD, F1~=~\textbf{0.852}).
+que l'adversarial training PGD pur 100\% adversarial (Approche~2) \'echoue \'egalement (evasion~40.2\%),
+que le PGD-AT corrig\'e avec mix 50/50 (Approche~3) est le pire (evasion~\textbf{41.5\%} --- gradient masking),
+et que le feature squeezing est la seule d\'efense efficace (evasion~\textbf{24.5\%} sous PGD, F1~=~\textbf{0.845}).
 \end{abstract}
 
 \tableofcontents
@@ -305,31 +307,40 @@ d'exemples adversariaux FGSM g\'en\'er\'es dynamiquement \cite{madry2018}.
     des exemples adversariaux de mauvaise qualit\'e en d\'ebut d'entra\^inement.
 \end{enumerate}
 
-\subsubsection*{Approche 2 --- PGD Adversarial Training (PGD-AT)}
+\subsubsection*{Approche 2 --- PGD Adversarial Training pur (100\% adversarial)}
 
-\textbf{Motivations :} corriger les trois d\'efauts de l'Approche~1 en utilisant PGD-7 comme
-attaque d'entra\^inement (m\^eme famille que l'\'evaluation) et en entra\^inant sur 100\% d'exemples
-adversariaux (\'elimination du distribution shift).
+\textbf{Motivations :} utiliser PGD-7 comme attaque d'entra\^inement et entra\^iner sur 100\%
+d'exemples adversariaux (\'elimination du distribution shift).
 
-\textbf{Formulation min-max de Madry et al.~\cite{madry2018} :}
 \[
 \min_\theta\; \mathbb{E}_{(x,y)}\!\left[\max_{\|\delta\|_\infty \leq \varepsilon} \mathcal{L}(f_\theta(x+\delta), y)\right]
 \]
 
-\`A chaque epoch : (1) g\'en\'erer $X_{\text{adv}}$ = PGD-7($X_{\text{train}}$, $\varepsilon=0.1$, $\alpha=0.01$),
-(2) mettre \`a jour les poids uniquement sur $X_{\text{adv}}$ (pas de mix).
+\textbf{R\'esultat :} Evasion rate = \alert{40.2\%} (pire que l'Approche~1).
+Entra\^iner sans donn\'ees propres provoque un oubli catastrophique de la distribution naturelle.
 
-\textbf{R\'esultat :} Evasion rate sous PGD = \alert{40.2\%} --- encore plus \'elev\'e.
+\subsubsection*{Approche 3 --- PGD-AT corrig\'e (PGD-10 + mix 50/50)}
 
-\textbf{Analyse :} entra\^iner sur 100\% d'exemples PGD sans aucune donn\'ee propre provoque
-un \emph{oubli catastrophique} de la distribution naturelle.
-Le mod\`ele ne voit jamais les donn\'ees propres et surfit la distribution adversariale PGD-7,
-sans g\'en\'eraliser aux exemples PGD-40 de l'\'evaluation (gap PGD-7 vs PGD-40 plus important encore).
+\textbf{Hypoth\`ese :} combiner le meilleur des deux approches --- PGD-10 comme attaque
+(corrige le robustness gap) et mix 50/50 propres+adversariaux (corrige l'oubli catastrophique).
 
-\textbf{Conclusion sur l'adversarial training :} les deux variantes d\'egradent la robustesse sur ce
-dataset. Ceci illustre la difficult\'e intrins\`eque de l'adversarial training sur des donn\'ees tabulaires
-r\'eseau, o\`u les features sont h\'et\'erog\`enes et les perturbations ne suivent pas de structure
-spatiale exploitable par le mod\`ele.
+Param\`etres : $\varepsilon=0.1$, $\alpha=0.01$, PGD-10, 30 epochs, batch 256, lr=0.0005.
+
+\textbf{R\'esultat :} F1 propres = 0.9116 (quasi-identique au baseline), mais Evasion = \alert{41.5\%} ---
+le pire r\'esultat de toutes les approches.
+
+\textbf{Analyse --- Gradient Masking :}
+L'adversarial training avec PGD-10 pousse les sorties Sigmoid vers des valeurs tr\`es confiantes
+(proches de 0 ou 1). Les gradients deviennent faibles dans les r\'egions d'entra\^inement :
+PGD-10 ne trouve plus de perturbation efficace (fausse robustesse),
+mais PGD-40 (40 it\'erations) contourne ce masquage en explorant davantage,
+trouvant des directions vuln\'erables que l'entra\^inement n'a jamais couvertes.
+
+\textbf{Conclusion finale sur l'adversarial training :}
+Les trois variantes d\'egradent la robustesse. La cause profonde est que les donn\'ees tabulaires
+r\'eseau sont fondamentalement diff\'erentes des images pour lesquelles l'adversarial training
+a \'et\'e con\c{c}u : features h\'et\'erog\`enes, pas de structure spatiale, gradient masking
+amplifi\'e par la normalisation StandardScaler.
 
 \subsection{D\'efense 2 --- Feature Squeezing}
 
@@ -376,6 +387,11 @@ Approche 2 PGD-AT    & Propres & 0.8943 & 0.9841 & 0.8195 & 18.1\% \\
 Approche 2 PGD-AT    & FGSM    & 0.7484 & 0.9786 & 0.6059 & 39.4\% \\
 \rowcolor{myred!15}
 Approche 2 PGD-AT    & PGD     & 0.7425 & 0.9783 & 0.5982 & 40.2\% \\
+\midrule
+Approche 3 PGD-AT Corr & Propres & 0.9116 & 0.9863 & 0.8474 & 15.3\% \\
+Approche 3 PGD-AT Corr & FGSM    & 0.7397 & 0.9805 & 0.5938 & 40.6\% \\
+\rowcolor{myred!20}
+Approche 3 PGD-AT Corr & PGD     & 0.7327 & 0.9802 & 0.5850 & \alert{41.5\%} \\
 \midrule
 Feat. Squeezing      & Propres & 0.8818 & 0.9620 & 0.8140 & 18.6\% \\
 Feat. Squeezing      & FGSM    & 0.8570 & 0.9602 & 0.7739 & 22.6\% \\
@@ -433,10 +449,10 @@ Feat. Squeezing      & PGD     & \textbf{0.8449} & 0.9592 & 0.7550 & \textbf{24.
 
 \subsection{Discussion}
 
-\textbf{Constat principal :} les deux variantes d'adversarial training (FGSM-AT et PGD-AT) produisent
+\textbf{Constat principal :} les trois variantes d'adversarial training (FGSM-AT, PGD-AT pur, PGD-AT corrig\'e) produisent
 un mod\`ele \emph{moins robuste} que le baseline non d\'efendu.
 Ce r\'esultat, contre-intuitif, s'explique par les m\'ecanismes analys\'es en Section~5.1 :
-robustness gap, distribution shift, et oubli catastrophique.
+robustness gap, oubli catastrophique, et gradient masking (Approche~3).
 
 \textbf{Pourquoi le Feature Squeezing est la meilleure d\'efense sur ce dataset ?}
 
@@ -465,14 +481,17 @@ donn\'ees normales, mais que des attaques adversariales simples (FGSM, PGD) suff
 passer 27\% des attaques inaper\c{c}ues.
 
 \begin{itemize}[leftmargin=1.5em, noitemsep]
-    \item Le \textbf{feature squeezing} est la meilleure d\'efense : evasion~24.5\% sous PGD
+    \item Le \textbf{feature squeezing} est la seule d\'efense efficace : evasion~24.5\% sous PGD
     vs 28.2\% pour le baseline, avec une perte minimale de F1 sur donn\'ees propres (0.882 vs 0.911).
     \item L'\textbf{adversarial training FGSM} (Approche~1) d\'egrade la robustesse (evasion~36.7\%)
     \`a cause du robustness gap et du distribution shift.
-    \item L'\textbf{adversarial training PGD} (Approche~2) \'echoue \'egalement (evasion~40.2\%)
+    \item L'\textbf{adversarial training PGD pur} (Approche~2) \'echoue \'egalement (evasion~40.2\%)
     car entra\^iner sur 100\% d'exemples adversariaux provoque un oubli catastrophique de la distribution naturelle.
+    \item Le \textbf{PGD-AT corrig\'e avec mix 50/50} (Approche~3) est le pire r\'esultat (evasion~41.5\%)
+    \`a cause du gradient masking : PGD-10 pousse la Sigmoid vers des sorties confiantes, masquant les gradients
+    pour les 10 it\'erations mais pas pour PGD-40 qui trouve de nouvelles directions vuln\'erables.
     \item Ces r\'esultats illustrent la difficult\'e intrins\`eque de l'adversarial training
-    sur des donn\'ees tabulaires r\'eseau h\'et\'erog\`enes.
+    sur des donn\'ees tabulaires r\'eseau h\'et\'erog\`enes, sans structure spatiale.
 \end{itemize}
 
 \textbf{Perspectives :} combiner feature squeezing et adversarial training avec un ratio propres/adversariaux

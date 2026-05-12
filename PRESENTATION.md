@@ -513,11 +513,53 @@ La cause principale est la **Correction 2** appliquée — entraîner sur 100% d
 
 3. **Overfitting adversarial :** en entraînant 100% sur PGD, le modèle surfit la distribution adversariale d'entraînement sans généraliser aux nouvelles perturbations adversariales vues à l'évaluation.
 
-**Conclusion sur l'Adversarial Training (les deux approches) :**
+---
 
-Les deux variantes d'Adversarial Training échouent sur ce dataset. Cela illustre une difficulté fondamentale de cette technique sur les **données tabulaires réseau** : contrairement aux images où les perturbations adversariales sont localement cohérentes, les features réseau sont hétérogènes (durée, bytes, TTL, jitter) et les perturbations adversariales ne suivent pas de structure spatiale exploitable par l'entraînement.
+### Approche 3 — PGD-AT Corrigé (PGD-10 + mix 50/50)
 
-**Feature Squeezing reste la meilleure défense** (Evasion 23.4%), car elle agit directement sur la précision numérique des perturbations sans modifier le modèle — une approche orthogonale plus adaptée à ce type de données.
+**Hypothèse :** combiner le bon de chaque approche — PGD-10 comme attaque (corrige le robustness gap) et mix 50/50 propres+adversariaux (corrige l'oubli catastrophique).
+
+**Algorithme :**
+```
+Pour chaque epoch (30 epochs, batch=256, lr=0.0005) :
+    1. Générer X_adv = PGD-10(modèle, X_train, y_train, ε=0.1)
+    2. X_mix = concat([X_train, X_adv])   → mix 50/50
+    3. y_mix = concat([y_train, y_train])
+    4. Shuffle → gradient descent sur BCE(f(X_mix), y_mix)
+```
+
+**Résultats :**
+
+| Modèle | F1 propres | Evasion Rate (PGD) | Verdict |
+|--------|------------|-------------------|---------|
+| Baseline | **0.9110** | 28.2% | référence |
+| Approche 1 — FGSM-AT | 0.8971 | 36.7% | ❌ |
+| Approche 2 — PGD-AT (100%) | 0.8943 | 40.2% | ❌ |
+| **Approche 3 — PGD-AT Corrigé** | **0.9116** | **41.5%** | **❌ pire de tous** |
+
+**Analyse — Gradient Masking :**
+
+L'Approche 3 a un F1=0.9116 sur données propres (quasi-identique au baseline). Pourtant, sous PGD-40 c'est le pire résultat. Ce phénomène s'appelle **gradient masking** :
+
+```
+Adversarial training avec PGD-10
+    → Sigmoid pousse vers des sorties très confiantes (proche 0 ou 1)
+    → Gradients très faibles dans les régions d'entraînement
+    → PGD-10 (entraînement) ne trouve plus de perturbation efficace → modèle semble robuste
+    → PGD-40 (évaluation) fait plus d'itérations → contourne le masquage
+    → Nouvelles directions exploitables que le modèle n'a jamais vues
+```
+
+Le modèle n'est pas réellement robuste — il masque les gradients, ce qui crée une fausse robustesse face aux attaques faibles mais augmente la vulnérabilité face aux attaques fortes.
+
+**Conclusion finale sur l'Adversarial Training (trois approches) :**
+
+Toutes les variantes d'Adversarial Training échouent sur ce dataset. La cause profonde est que les **données tabulaires réseau sont fondamentalement différentes des images** pour lesquelles l'adversarial training a été conçu :
+- Les features sont hétérogènes (durée, bytes, TTL, jitter) — pas de structure spatiale
+- L'epsilon uniforme sur toutes les features ne correspond pas à la géométrie réelle des données
+- Le gradient masking est plus prononcé sur les données tabulaires normalisées
+
+**Feature Squeezing est la meilleure défense** (Evasion 24.5% vs 28.2% baseline), car elle agit orthogonalement au modèle — en détruisant la précision numérique des perturbations avant qu'elles atteignent le modèle, sans modifier la distribution d'entraînement ni créer de gradient masking.
 
 ### Défense 2 — Feature Squeezing
 
@@ -558,29 +600,29 @@ La perturbation soigneusement calculée est effacée.
 
 ### Tableau complet — toutes les approches
 
-| Modèle | F1 propres | F1 FGSM | F1 PGD | Evasion PGD |
-|--------|-----------|---------|--------|-------------|
-| Baseline MLP | **0.9110** | 0.8533 | 0.8402 | 28.24% |
-| Approche 1 — FGSM-AT | 0.8971 | 0.7746 | 0.7700 | 36.71% |
-| Approche 2 — PGD-AT | 0.8943 | 0.7484 | 0.7425 | 40.18% |
-| + Feature Squeezing | 0.8818 | **0.8570** | **0.8519** | **23.42%** |
+| Modèle | F1 propres | F1 PGD | Evasion PGD | Verdict |
+|--------|-----------|--------|-------------|---------|
+| Baseline MLP | **0.9110** | 0.8306 | 28.2% | référence |
+| Approche 1 — FGSM-AT | 0.8971 | 0.7700 | 36.7% | ❌ pire |
+| Approche 2 — PGD-AT (100%) | 0.8943 | 0.7425 | 40.2% | ❌ encore pire |
+| Approche 3 — PGD-AT corrigé | 0.9116 | 0.7327 | 41.5% | ❌ gradient masking |
+| **Feature Squeezing** | 0.8818 | **0.8449** | **24.5%** | **✅ meilleure défense** |
 
 ### Analyse des résultats
 
-**Constat principal : l'Adversarial Training échoue dans les deux variantes.**
+**Constat principal : l'Adversarial Training échoue dans les trois variantes.**
 
-Les deux approches d'Adversarial Training (FGSM-AT et PGD-AT) produisent un modèle **moins robuste** que le baseline sans défense — un résultat contre-intuitif mais scientifiquement explicable (voir Section 6).
+Toutes les variantes dégradent la robustesse par rapport au baseline (28.2%). Le phénomène de **gradient masking** explique pourquoi l'Approche 3 (la plus sophistiquée) est paradoxalement la pire.
 
-**Feature Squeezing gagne sur tous les scénarios d'attaque :**
-- F1 sous PGD : **0.8519** vs 0.8402 (baseline), 0.7700 (FGSM-AT), 0.7425 (PGD-AT)
-- Evasion Rate PGD : **23.4%** vs 28.2% (baseline), 36.7% (FGSM-AT), 40.2% (PGD-AT)
-- Perd seulement 3% de F1 sur données propres vs baseline
+**Feature Squeezing est la seule défense efficace :**
+- Réduit l'Evasion Rate de 28.2% → **24.5%** (-3.7 points)
+- F1 sous PGD : **0.8449** vs 0.8306 baseline (+1.4%)
+- Perd seulement 3% de F1 sur données propres (0.8818 vs 0.9110)
+- Aucun risque de gradient masking — agit avant le modèle
 
-**Pourquoi l'Adversarial Training échoue sur ce dataset :**
+**Pourquoi Feature Squeezing gagne là où l'Adversarial Training échoue :**
 
-> Voir analyses détaillées en Section 6 — Constat d'échec FGSM-AT et Résultats Approche 2.
-
-En synthèse : les deux approches souffrent du même problème fondamental — les données tabulaires réseau sont hétérogènes (features de natures très différentes), ce qui rend les perturbations adversariales non-structurées et difficiles à capturer par l'entraînement. Feature Squeezing contourne ce problème en agissant au niveau de la précision numérique, indépendamment du modèle.
+L'adversarial training modifie la **distribution d'entraînement** du modèle — sur des données tabulaires hétérogènes, cela crée du gradient masking et des instabilités. Feature Squeezing agit **orthogonalement** : il détruit la précision numérique des perturbations avant qu'elles atteignent le modèle, sans toucher aux gradients ni à la frontière de décision.
 
 **Courbe robustesse vs epsilon (sur PGD) :**
 

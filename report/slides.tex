@@ -400,6 +400,45 @@ L'adversarial training \'echoue sur ce dataset tabulaire h\'et\'erog\`ene.
 \end{columns}
 \end{frame}
 
+\begin{frame}{D\'efense 1 --- Adversarial Training : Approche 3 (PGD-AT Corrig\'e)}
+\begin{columns}[T]
+\column{0.54\textwidth}
+\begin{block}{Hypoth\`ese}
+Combiner PGD-10 (corrige robustness gap) + mix 50/50 (corrige l'oubli catastrophique).
+\end{block}
+\vspace{0.2em}
+Param\`etres : $\varepsilon=0.1$, $\alpha=0.01$, PGD-10, 30 epochs, batch 256, $lr=0.0005$
+
+\vspace{0.3em}
+\textbf{R\'esultat :}
+\begin{table}
+\scriptsize
+\begin{tabular}{lrr}
+\toprule
+Sc\'enario & F1 & Evasion\% \\
+\midrule
+Propres & 0.9116 & 15.3\% \\
+\rowcolor{myred!30}
+PGD & 0.7327 & \alert{41.5\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\alert{Le pire r\'esultat de toutes les approches !}
+
+\column{0.43\textwidth}
+\begin{alertblock}{Gradient Masking}
+PGD-10 pousse la Sigmoid vers des valeurs tr\`es confiantes (0 ou 1) $\Rightarrow$ gradients faibles.
+
+\medskip
+PGD-10 ne trouve plus de perturbation (fausse robustesse), mais PGD-40 contourne en explorant davantage.
+\end{alertblock}
+\vspace{0.3em}
+\begin{block}{Bilan adv. training}
+Les 3 variantes \'echouent. La cause : donn\'ees tabulaires h\'et\'erog\`enes, sans structure spatiale.
+\end{block}
+\end{columns}
+\end{frame}
+
 \begin{frame}{D\'efense 2 --- Feature Squeezing}
 \begin{columns}[T]
 \column{0.54\textwidth}
@@ -458,6 +497,11 @@ Approche 2 PGD-AT    & Propres & 0.8943 & 0.819 & 18.1\% \\
 \rowcolor{myred!25}
 Approche 2 PGD-AT    & PGD     & 0.7425 & 0.598 & \alert{40.2\%} \\
 \midrule
+\rowcolor{myred!20}
+Approche 3 PGD-AT Corr & Propres & 0.9116 & 0.847 & 15.3\% \\
+\rowcolor{myred!35}
+Approche 3 PGD-AT Corr & PGD     & 0.7327 & 0.585 & \alert{41.5\%} \\
+\midrule
 \rowcolor{mygreen!15}
 Feat. Squeezing      & Propres & 0.8818 & 0.814 & 18.6\% \\
 \rowcolor{mygreen!25}
@@ -467,7 +511,7 @@ Feat. Squeezing      & PGD     & \textbf{0.8449} & 0.755 & \textbf{24.5\%} \\
 \end{table}
 \vspace{0.2em}
 \begin{center}
-\footnotesize L'adversarial training \'echoue dans les deux variantes. Le Feature Squeezing est la seule d\'efense efficace.
+\footnotesize L'adversarial training \'echoue dans les 3 variantes (36--41.5\%). Le Feature Squeezing est la seule d\'efense efficace (24.5\%).
 \end{center}
 \end{frame}
 
@@ -517,7 +561,7 @@ $\varepsilon$ & \textbf{Baseline} & \textbf{Adv. Train.} \\
 \begin{itemize}
     \item MLP baseline : F1 = \textbf{0.911}, evasion \textbf{15.5\%}
     \item FGSM/PGD font \'evader \textbf{28\%} des attaques
-    \item Adversarial training (FGSM-AT et PGD-AT) : \alert{\'echec sur les deux variantes} --- evasion 36--40\%
+    \item Adversarial training (FGSM-AT, PGD-AT, PGD-AT corr.) : \alert{\'echec sur les 3 variantes} --- evasion 36--41.5\%
     \item \textbf{Feature Squeezing} : seule d\'efense efficace (evasion \textbf{24.5\%})
 \end{itemize}
 \end{block}
@@ -525,7 +569,7 @@ $\varepsilon$ & \textbf{Baseline} & \textbf{Adv. Train.} \\
 \column{0.48\textwidth}
 \begin{alertblock}{Pourquoi l'adv. training \'echoue}
 Les donn\'ees r\'eseau sont \textbf{tabulaires et h\'et\'erog\`enes} --- pas de structure spatiale.
-L'adversarial training sur ces donn\'ees souffre de robustness gap et d'oubli catastrophique.
+Les 3 variantes souffrent respectivement de robustness gap, oubli catastrophique, et gradient masking.
 \end{alertblock}
 
 \vspace{0.3em}
