@@ -1,0 +1,48 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction et Threat Model}{2}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Dataset et Pr\'etraitement}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dataset UNSW-NB15}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Statistiques du dataset UNSW-NB15}}{2}{table.caption.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Distribution des classes (gauche) et types d'attaques (droite)}}{2}{figure.caption.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Pipeline de pr\'etraitement}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Top 20 features les plus corr\'el\'ees au label (apr\`es normalisation)}}{3}{figure.caption.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Mod\`ele Baseline --- Architecture et R\'esultats}{3}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Architecture MLP}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Entra\^inement}{3}{subsection.3.2}\protected@file@percent }
+\citation{goodfellow2015}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Courbe de perte (BCE Loss) du mod\`ele baseline sur 30 epochs}}{4}{figure.caption.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}R\'esultats sur donn\'ees propres}{4}{subsection.3.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Performance du mod\`ele baseline sur le jeu de test non perturb\'e}}{4}{table.caption.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Matrice de confusion du baseline sur donn\'ees propres}}{4}{figure.caption.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Attaques Adversariales}{4}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}FGSM --- Fast Gradient Sign Method}{4}{subsection.4.1}\protected@file@percent }
+\citation{madry2018}
+\citation{madry2018}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}PGD --- Projected Gradient Descent}{5}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}R\'esultats des attaques sur le Baseline}{5}{subsection.4.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Impact des attaques adversariales sur le mod\`ele baseline ($\varepsilon = 0.1$)}}{5}{table.caption.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces F1-score et evasion rate en fonction de $\varepsilon $ sous attaque PGD}}{5}{figure.caption.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}D\'efenses}{5}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}D\'efense 1 --- Adversarial Training}{5}{subsection.5.1}\protected@file@percent }
+\citation{xu2018}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}D\'efense 2 --- Feature Squeezing}{6}{subsection.5.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {1}{\ignorespaces Impl\'ementation du Feature Squeezing}}{6}{lstlisting.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Comparaison compl\`ete des d\'efenses}{6}{subsection.5.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Comparaison des trois mod\`eles sous toutes les conditions ($\varepsilon =0.1$)}}{6}{table.caption.9}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Comparaison F1-score et Evasion Rate --- Baseline vs Adv.~Training vs Feat.~Squeezing}}{6}{figure.caption.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Analyse de Robustesse}{7}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}R\'esultats d\'etaill\'es par epsilon}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces F1-score sous attaque PGD en fonction du budget $\varepsilon $}}{7}{table.caption.11}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces F1-score et evasion rate en fonction de $\varepsilon $ --- Baseline vs Adv. Training}}{7}{figure.caption.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Matrices de confusion compar\'ees}{8}{subsection.6.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Matrices de confusion --- Baseline et Adv. Training sous donn\'ees propres, FGSM, PGD}}{8}{figure.caption.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Discussion}{8}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{8}{section.7}\protected@file@percent }
+\bibcite{goodfellow2015}{1}
+\bibcite{madry2018}{2}
+\bibcite{xu2018}{3}
+\bibcite{unswnb15}{4}
+\gdef \@abspage@last{9}

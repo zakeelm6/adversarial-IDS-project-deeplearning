@@ -1,0 +1,7 @@
+\beamer@sectionintoc {1}{Contexte et Threat Model}{3}{0}{1}
+\beamer@sectionintoc {2}{Dataset et Pr\'etraitement}{5}{0}{2}
+\beamer@sectionintoc {3}{Mod\`ele Baseline}{7}{0}{3}
+\beamer@sectionintoc {4}{Attaques Adversariales}{9}{0}{4}
+\beamer@sectionintoc {5}{D\'efenses}{12}{0}{5}
+\beamer@sectionintoc {6}{Comparaison et R\'esultats}{14}{0}{6}
+\beamer@sectionintoc {7}{Conclusion}{18}{0}{7}
